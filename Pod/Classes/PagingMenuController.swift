@@ -134,6 +134,7 @@ open class PagingMenuController: UIViewController, PagingValidator {
     }
     
     open func move(toPage page: Int, animated: Bool = true) {
+        let needAnimated = abs(page - currentPage) != 1 ? false : animated
         switch options.componentType {
         case .menuView, .all:
             // ignore an unexpected page number
@@ -142,7 +143,7 @@ open class PagingMenuController: UIViewController, PagingValidator {
             let lastPage = menuView.currentPage
             guard page != lastPage else {
                 // place views on appropriate position
-                menuView.move(toPage: page, animated: animated)
+                menuView.move(toPage: page, animated: needAnimated)
                 pagingViewController?.positionMenuController()
                 return
             }
@@ -150,7 +151,7 @@ open class PagingMenuController: UIViewController, PagingValidator {
             switch options.componentType {
             case .all: break
             default:
-                menuView.move(toPage: page, animated: animated)
+                menuView.move(toPage: page, animated: needAnimated)
                 return
             }
         case .pagingController:
@@ -172,10 +173,10 @@ open class PagingMenuController: UIViewController, PagingValidator {
         pagingViewController.update(currentPage: nextPage)
         pagingViewController.currentViewController = nextPagingViewController
         
-        let duration = animated ? options.animationDuration : 0
-        UIView.animate(withDuration: duration, animations: {
-            () -> Void in
-            pagingViewController.positionMenuController()
+        if needAnimated {
+            UIView.animate(withDuration: options.animationDuration, animations: {
+                () -> Void in
+                pagingViewController.positionMenuController()
             }) { [weak self] (_) -> Void in
                 pagingViewController.relayoutPagingViewControllers()
                 
@@ -183,7 +184,17 @@ open class PagingMenuController: UIViewController, PagingValidator {
                 self?.showPagingMenuControllers()
                 
                 self?.delegate?.didMove(toMenu: nextPagingViewController, fromMenu: previousPagingViewController)
+            }
         }
+        else {
+            pagingViewController.positionMenuController()
+            pagingViewController.relayoutPagingViewControllers()
+            // show paging views
+            self.showPagingMenuControllers()
+            self.delegate?.didMove(toMenu: nextPagingViewController, fromMenu: previousPagingViewController)
+        }
+        
+
     }
     
     // MARK: - Constructor
