@@ -9,21 +9,21 @@
 import UIKit
 
 open class MenuItemView: UIView {
-    lazy public var titleLabel: UILabel = self.initLabel()
-    lazy public var descriptionLabel: UILabel = self.initLabel()
-    lazy public var menuImageView: UIImageView = {
+    lazy open var titleLabel: UILabel = self.initLabel()
+    lazy open var descriptionLabel: UILabel = self.initLabel()
+    lazy open var menuImageView: UIImageView = {
         $0.isUserInteractionEnabled = true
         $0.translatesAutoresizingMaskIntoConstraints = false
         return $0
     }(UIImageView(frame: .zero))
-    public fileprivate(set) var customView: UIView? {
+    open fileprivate(set) var customView: UIView? {
         didSet {
             guard let customView = customView else { return }
             
             addSubview(customView)
         }
     }
-    public internal(set) var isSelected: Bool = false {
+    open internal(set) var isSelected: Bool = false {
         didSet {
             if case .roundRect = menuOptions.focusMode {
                 backgroundColor = UIColor.clear
@@ -51,7 +51,7 @@ open class MenuItemView: UIView {
             }
         }
     }
-    lazy public fileprivate(set) var dividerImageView: UIImageView? = { [unowned self] in
+    lazy open fileprivate(set) var dividerImageView: UIImageView? = { [unowned self] in
         guard let image = self.menuOptions.dividerImage else { return nil }
         let imageView = UIImageView(image: image)
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -187,40 +187,31 @@ open class MenuItemView: UIView {
     }
     
     fileprivate func layoutMultiLineLabel() {
-        // H:|[titleLabel(==labelSize.width)]|
-        // H:|[descriptionLabel(==labelSize.width)]|
-        // V:|-margin-[titleLabel][descriptionLabel]-margin|
         let titleLabelSize = calculateLabelSize(titleLabel, maxWidth: maxWindowSize)
         let descriptionLabelSize = calculateLabelSize(descriptionLabel, maxWidth: maxWindowSize)
         let verticalMargin = max(menuOptions.height - (titleLabelSize.height + descriptionLabelSize.height), 0) / 2
-        widthConstraint = titleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: titleLabelSize.width)
-        descriptionWidthConstraint = descriptionLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: descriptionLabelSize.width)
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            widthConstraint,
-            descriptionLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            descriptionLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            descriptionWidthConstraint,
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: verticalMargin),
-            titleLabel.bottomAnchor.constraint(equalTo: descriptionLabel.topAnchor, constant: 0),
-            descriptionLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: verticalMargin),
-            titleLabel.heightAnchor.constraint(equalToConstant: titleLabelSize.height),
-            ])
+        let metrics = ["margin": verticalMargin]
+        let viewsDictionary = ["titleLabel": titleLabel, "descriptionLabel": descriptionLabel]
+        let horizontalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "H:|[titleLabel]|", options: [], metrics: nil, views: viewsDictionary)
+        let verticalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|-margin-[titleLabel][descriptionLabel]-margin-|", options: [], metrics: metrics, views: viewsDictionary)
+
+        let descriptionHorizontalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "H:|[descriptionLabel]|", options: [], metrics: nil, views: viewsDictionary)
+        widthConstraint = NSLayoutConstraint(item: titleLabel, attribute: .width, relatedBy: .greaterThanOrEqual, toItem: nil, attribute: .width, multiplier: 1.0, constant: titleLabelSize.width)
+        descriptionWidthConstraint = NSLayoutConstraint(item: descriptionLabel, attribute: .width, relatedBy: .greaterThanOrEqual, toItem: nil, attribute: .width, multiplier: 1.0, constant: descriptionLabelSize.width)
+        
+        NSLayoutConstraint.activate(horizontalConstraints + verticalConstraints + descriptionHorizontalConstraints + [widthConstraint, descriptionWidthConstraint])
     }
 
     fileprivate func layoutLabel() {
-        // H:|[titleLabel](==labelSize.width)|
-        // V:|[titleLabel]|
-        let titleLabelSize = calculateLabelSize(titleLabel, maxWidth: maxWindowSize)
-        widthConstraint = titleLabel.widthAnchor.constraint(equalToConstant: titleLabelSize.width)
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            widthConstraint,
-            titleLabel.topAnchor.constraint(equalTo: topAnchor),
-            titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
-            ])
+        let viewsDictionary = ["label": titleLabel]
+        let labelSize = calculateLabelSize(titleLabel, maxWidth: maxWindowSize)
+
+        let horizontalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "H:|[label]|", options: [], metrics: nil, views: viewsDictionary)
+        let verticalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[label]|", options: [], metrics: nil, views: viewsDictionary)
+        widthConstraint = NSLayoutConstraint(item: titleLabel, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1.0, constant: labelSize.width)
+        
+        NSLayoutConstraint.activate(horizontalConstraints + verticalConstraints + [widthConstraint])
+
     }
     
     fileprivate func layoutImageView() {
@@ -229,22 +220,18 @@ open class MenuItemView: UIView {
         let width: CGFloat
         switch menuOptions.displayMode {
         case .segmentedControl:
-            if let windowWidth = UIApplication.shared.keyWindow?.bounds.size.width {
-                width = windowWidth / CGFloat(menuOptions.itemsOptions.count)
-            } else {
-                width = UIScreen.main.bounds.width / CGFloat(menuOptions.itemsOptions.count)
-            }
+            width = UIApplication.shared.keyWindow!.bounds.size.width / CGFloat(menuOptions.itemsOptions.count)
         default:
             width = image.size.width + horizontalMargin * 2
         }
         
-        widthConstraint = widthAnchor.constraint(equalToConstant: width)
+        widthConstraint = NSLayoutConstraint(item: self, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1.0, constant: width)
         
         NSLayoutConstraint.activate([
-            menuImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            menuImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            menuImageView.widthAnchor.constraint(equalToConstant: image.size.width),
-            menuImageView.heightAnchor.constraint(equalToConstant: image.size.height),
+            NSLayoutConstraint(item: menuImageView, attribute: .centerX, relatedBy: .equal, toItem: self, attribute: .centerX, multiplier: 1.0, constant: 0.0),
+            NSLayoutConstraint(item: menuImageView, attribute: .centerY, relatedBy: .equal, toItem: self, attribute: .centerY, multiplier: 1.0, constant: 0.0),
+            NSLayoutConstraint(item: menuImageView, attribute: .width, relatedBy: .equal, toItem: nil, attribute: .width, multiplier: 1.0, constant: image.size.width),
+            NSLayoutConstraint(item: menuImageView, attribute: .height, relatedBy: .equal, toItem: nil, attribute: .height, multiplier: 1.0, constant: image.size.height),
             widthConstraint
             ])
     }
@@ -266,14 +253,13 @@ open class MenuItemView: UIView {
     fileprivate func layoutDivider() {
         guard let dividerImageView = dividerImageView else { return }
         
-        NSLayoutConstraint.activate([
-            dividerImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 1.0),
-            dividerImageView.trailingAnchor.constraint(equalTo: trailingAnchor)
-            ])
+        let centerYConstraint = NSLayoutConstraint(item: dividerImageView, attribute: .centerY, relatedBy: .equal, toItem: self, attribute: .centerY, multiplier: 1.0, constant: 1.0)
+        let rightConstraint = NSLayoutConstraint(item: dividerImageView, attribute: .right, relatedBy: .equal, toItem: self, attribute: .right, multiplier: 1.0, constant: 0.0)
+        NSLayoutConstraint.activate([centerYConstraint, rightConstraint])
     }
 }
 
-extension MenuItemView {
+extension MenuItemView: ViewCleanable {
     func cleanup() {
         switch menuItemOptions.displayMode {
         case .text:
@@ -291,22 +277,20 @@ extension MenuItemView {
     }
 }
 
-// MARK: Lable Size
-
-extension MenuItemView {
-    fileprivate func labelWidth(_ widthMode: MenuItemWidthMode, estimatedSize: CGSize) -> CGFloat {
+extension MenuItemView: LabelSizeCalculatable {
+    func labelWidth(_ widthMode: MenuItemWidthMode, estimatedSize: CGSize) -> CGFloat {
         switch widthMode {
         case .flexible: return ceil(estimatedSize.width)
         case .fixed(let width): return width
         }
     }
     
-    fileprivate func estimatedLabelSize(_ label: UILabel) -> CGSize {
+    func estimatedLabelSize(_ label: UILabel) -> CGSize {
         guard let text = label.text else { return .zero }
         return NSString(string: text).boundingRect(with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: [NSFontAttributeName: label.font], context: nil).size
     }
     
-    fileprivate func calculateLabelSize(_ label: UILabel, maxWidth: CGFloat) -> CGSize {
+    func calculateLabelSize(_ label: UILabel, maxWidth: CGFloat) -> CGSize {
         guard let _ = label.text else { return .zero }
         
         let itemWidth: CGFloat

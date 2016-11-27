@@ -84,5 +84,6 @@ public enum MenuFocusMode {
 
 public enum MenuPosition {
     case top
+    case topCross
     case bottom
 }

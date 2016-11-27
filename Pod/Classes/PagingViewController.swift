@@ -9,13 +9,12 @@
 import UIKit
 
 open class PagingViewController: UIViewController {
-    public let controllers: [UIViewController]
-    public internal(set) var currentViewController: UIViewController!
-    public fileprivate(set) var visibleControllers = [UIViewController]()
+    open let controllers: [UIViewController]
+    open internal(set) var currentViewController: UIViewController!
+    open fileprivate(set) var visibleControllers = [UIViewController]()
     
     internal let contentScrollView: UIScrollView = {
         $0.isPagingEnabled = true
-        $0.isDirectionalLockEnabled = true
         $0.showsHorizontalScrollIndicator = false
         $0.showsVerticalScrollIndicator = false
         $0.scrollsToTop = false
@@ -81,12 +80,12 @@ open class PagingViewController: UIViewController {
     }
     
     fileprivate func layoutContentScrollView() {
-        NSLayoutConstraint.activate([
-            contentScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            contentScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            contentScrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            contentScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            ])
+        let viewsDictionary = ["contentScrollView": contentScrollView]
+        
+        let horizontalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "H:|[contentScrollView]|", options: [], metrics: nil, views: viewsDictionary)
+        let verticalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[contentScrollView]|", options: [], metrics: nil, views: viewsDictionary)
+        
+        NSLayoutConstraint.activate(horizontalConstraints + verticalConstraints)
     }
     
     fileprivate func constructPagingViewControllers() {
@@ -114,9 +113,8 @@ open class PagingViewController: UIViewController {
             }
             
             pagingView.frame = .zero
-            pagingView.backgroundColor = pagingView.backgroundColor ?? options.backgroundColor
+            pagingView.backgroundColor = options.backgroundColor
             pagingView.translatesAutoresizingMaskIntoConstraints = false
-            
             contentScrollView.addSubview(pagingView)
             addChildViewController(controller as UIViewController)
             controller.didMove(toParentViewController: self)
@@ -129,72 +127,48 @@ open class PagingViewController: UIViewController {
         // cleanup
         NSLayoutConstraint.deactivate(contentScrollView.constraints)
         
+        var viewsDictionary: [String: AnyObject] = ["contentScrollView": contentScrollView]
         for (index, controller) in controllers.enumerated() {
             if !shouldLoad(page: index) {
                 continue
             }
             
-            guard let pagingView = controller.view else { continue }
+            viewsDictionary["pagingView"] = controller.view!
+            var horizontalVisualFormat = String()
             
             // only one view controller
             if options.lazyLoadingPage == LazyLoadingPage.one ||
-                controllers.count == MinimumSupportedViewCount ||
-            options.menuControllerSet == MenuControllerSet.single {
-                // H:|[pagingView]|
-                NSLayoutConstraint.activate([
-                    pagingView.leadingAnchor.constraint(equalTo: contentScrollView.leadingAnchor),
-                    pagingView.trailingAnchor.constraint(equalTo: contentScrollView.trailingAnchor),
-                    ])
+                controllers.count == MinimumSupportedViewCount || options.menuControllerSet == MenuControllerSet.single {
+                horizontalVisualFormat = "H:|[pagingView(==contentScrollView)]|"
             } else {
-                if case .all(let menuOptions, _) = options.componentType,
-                    case .infinite = menuOptions.displayMode {
+                if case .all(let menuOptions, _) = options.componentType, case .infinite = menuOptions.displayMode {
                     if index == currentPage {
-                        guard let previousPagingView = controllers[previousPage].view,
-                            let nextPagingView = controllers[nextPage].view else { continue }
-                        
-                        // H:[previousPagingView][pagingView][nextPagingView]
-                        NSLayoutConstraint.activate([
-                            previousPagingView.trailingAnchor.constraint(equalTo: pagingView.leadingAnchor, constant: 0),
-                            pagingView.trailingAnchor.constraint(equalTo: nextPagingView.leadingAnchor, constant: 0)
-                            ])
+                        viewsDictionary["previousPagingView"] = controllers[previousPage].view
+                        viewsDictionary["nextPagingView"] = controllers[nextPage].view
+                        horizontalVisualFormat = "H:[previousPagingView][pagingView(==contentScrollView)][nextPagingView]"
                     } else if index == previousPage {
-                        // "H:|[pagingView]
-                        pagingView.leadingAnchor.constraint(equalTo: contentScrollView.leadingAnchor).isActive = true
+                        horizontalVisualFormat = "H:|[pagingView(==contentScrollView)]"
                     } else if index == nextPage {
-                        // H:[pagingView]|
-                        pagingView.trailingAnchor.constraint(equalTo: contentScrollView.trailingAnchor).isActive = true
+                        horizontalVisualFormat = "H:[pagingView(==contentScrollView)]|"
                     }
                 } else {
-                    switch (options.lazyLoadingPage, index) {
-                    case (.three, 0),
-                         (.three, previousPage),
-                         (.all, 0):
-                        // H:|[pagingView]
-                        pagingView.leadingAnchor.constraint(equalTo: contentScrollView.leadingAnchor).isActive = true
-                    case (.three, controllers.count - 1),
-                             (.three, nextPage),
-                             (.all, controllers.count - 1):
-                            guard let previousPagingView = controllers[index - 1].view else { continue }
-                            // H:[previousPagingView][pagingView]|
-                            previousPagingView.trailingAnchor.constraint(equalTo: pagingView.leadingAnchor, constant: 0).isActive = true
-                            pagingView.trailingAnchor.constraint(equalTo: contentScrollView.trailingAnchor).isActive = true
-                    case (.three, _), (.all, _):
-                        guard let previousPagingView = controllers[index - 1].view else { continue }
-                        // H:[previousPagingView][pagingView]
-                        previousPagingView.trailingAnchor.constraint(equalTo: pagingView.leadingAnchor, constant: 0).isActive = true
-                    default: break
+                    if index == 0 || index == previousPage {
+                        horizontalVisualFormat = "H:|[pagingView(==contentScrollView)]"
+                    } else {
+                        viewsDictionary["previousPagingView"] = controllers[index - 1].view
+                        if index == controllers.count - 1 || index == nextPage {
+                            horizontalVisualFormat = "H:[previousPagingView][pagingView(==contentScrollView)]|"
+                        } else {
+                            horizontalVisualFormat = "H:[previousPagingView][pagingView(==contentScrollView)]"
+                        }
                     }
                 }
             }
-            // H:[pagingView(==contentScrollView)
-            pagingView.widthAnchor.constraint(equalTo: contentScrollView.widthAnchor).isActive = true
             
-            // V:|[pagingView(==contentScrollView)]|
-            NSLayoutConstraint.activate([
-                pagingView.topAnchor.constraint(equalTo: contentScrollView.topAnchor),
-                pagingView.bottomAnchor.constraint(equalTo: contentScrollView.bottomAnchor),
-                pagingView.heightAnchor.constraint(equalTo: contentScrollView.heightAnchor)
-                ])
+            let horizontalConstraints = NSLayoutConstraint.constraints(withVisualFormat: horizontalVisualFormat, options: [], metrics: nil, views: viewsDictionary)
+            let verticalConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[pagingView(==contentScrollView)]|", options: [], metrics: nil, views: viewsDictionary)
+            
+            NSLayoutConstraint.activate(horizontalConstraints + verticalConstraints)
         }
         
         view.setNeedsLayout()
@@ -237,7 +211,7 @@ extension PagingViewController: Pagable {
     }
 }
 
-extension PagingViewController {
+extension PagingViewController: ViewCleanable {
     func cleanup() {
         visibleControllers.removeAll(keepingCapacity: true)
         currentViewController = nil
@@ -252,10 +226,8 @@ extension PagingViewController {
     }
 }
 
-// MARK: Page Control
-
-extension PagingViewController {
-    fileprivate func shouldLoad(page: Int) -> Bool {
+extension PagingViewController: PageLoadable {
+    func shouldLoad(page: Int) -> Bool {
         switch (options.menuControllerSet, options.lazyLoadingPage) {
         case (.single, _),
              (_, .one):
@@ -270,21 +242,20 @@ extension PagingViewController {
                 guard page >= previousPage &&
                     page <= nextPage else { return false }
             }
-        case (_, .all): return true
         }
         return true
     }
     
-    fileprivate func isVisible(controller: UIViewController) -> Bool {
+    func isVisible(controller: UIViewController) -> Bool {
         return self.childViewControllers.contains(controller)
     }
     
-    fileprivate func hideVisibleControllers() {
+    func hideVisibleControllers() {
         guard shouldWaitForLayout() else { return }
         visibleControllers.forEach { $0.view.alpha = 0 }
     }
     
-    fileprivate func showVisibleControllers() {
+    func showVisibleControllers() {
         guard shouldWaitForLayout() else { return }
         visibleControllers.forEach { $0.view.alpha = 1 }
     }
