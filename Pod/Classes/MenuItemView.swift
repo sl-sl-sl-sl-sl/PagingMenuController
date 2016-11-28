@@ -28,7 +28,7 @@ open class MenuItemView: UIView {
             if case .roundRect = menuOptions.focusMode {
                 backgroundColor = UIColor.clear
             } else {
-                backgroundColor = isSelected ? menuOptions.selectedBackgroundColor : menuOptions.backgroundColor
+                backgroundColor = UIColor.clear
             }
             
             switch menuItemOptions.displayMode {
